@@ -1,58 +1,63 @@
 === BACKGROUND & INTRODUCTION ===
 
-bmap is a Linux kernel snapshot driver. It provides real time snapshot capability of any 
-block device, such as /dev/sda, /dev/vgroup/lv. For demo purposes, the source code does 
-not have the controller device piece that most production drivers have for IOCTL 
-communication with users. However, the presented source code has all the essential core 
-pieces for snapshot implementation.
+bmap is a Linux kernel snapshot driver. It provides real time snapshot capability of 
+any block device, such as /dev/sda, /dev/vgroup/lv. For demo purposes, the source code
+does not have the controller device piece that most production drivers have for IOCTL 
+communication with users. However, the presented source code has all the essential 
+core pieces for snapshot implementation.
 
 Snapshot is a virtual image of a block device at a given time point. When snapshot is 
 initially taken against a block device, only a very few set of kernel references are 
-changes with no actual IO taking place. The whole process takes a few micro seconds. After 
-the snapshot is generated, read IO against the original block device, while write IO will 
-trigger a Copy On Write backup operation of the data on the original block device. In most 
-cases, read IO has no impact on the system while write IO can have perceptible impact 
-depending upon how Copy On Write backup is implemented.
+changes with no actual IO taking place. The whole process takes a few micro seconds. 
+After the snapshot is generated, read IO against the original block device, while write
+IO will trigger a Copy On Write backup operation of the data on the original block 
+device. In most cases, read IO has no impact on the system while write IO can have 
+perceptible impact depending upon how Copy On Write backup is implemented.
 
-The created virtual image can be either read only or writeable as well. The implementation 
-of writeable snapshot is more complication than its read only counterparts because Copy On 
-Write needs to be implemented. For demo purposes, only the read only part is presented here.
+The created virtual image can be either read only or writeable as well. The 
+implementation of writeable snapshot is more complication than its read only 
+counterparts because Copy On Write needs to be implemented. For demo purposes, only 
+the read only part is presented here.
 
-The created virtual image can be either session based, in which case the virtual image goes 
-away when machine reboots, or reboot persistent, in which case the virtual image will be 
-persistent across machine reboots. For demo purposes, only limited capability of reboot 
-persistence is presented here.
+The created virtual image can be either session based, in which case the virtual image 
+goes away when machine reboots, or reboot persistent, in which case the virtual image 
+will be persistent across machine reboots. For demo purposes, only limited capability 
+of reboot persistence is presented here.
 
 
 === IMPLEMENTATION BRIEF ===
 
-Snapshot is created by replacing the make_request_fn of the target block device, so that all 
-the IO requests will be intercepted and their operation, the disk offset and length, will be 
-analyzed by the driver. And for write request, Copy On Write will take place.
+Snapshot is created by replacing the make_request_fn of the target block device, so 
+that all the IO requests will be intercepted and their operation, the disk offset and 
+length, will be analyzed by the driver. And for write request, Copy On Write will take 
+place.
   
-When a write IO request reaches the original block device, and the data that the request is 
-going to overwrite has not been backed up yet, a Copy On Write backup operation will take 
-place where the write request will be put on hold, the existing data will be copied out and 
-saved elsewhere, and write request will resume. 
+When a write IO request reaches the original block device, and the data that the  
+request is going to overwrite has not been backed up yet, a Copy On Write backup 
+operation will take place where the write request will be put on hold, the existing 
+data will be copied out and saved elsewhere, and write request will resume. 
 
-Because every write IO request could generate two additional IO request, one to copy out the
-existing data and the other to save the copied out data, if not carefully designed, there will 
-be a perceptible degradation on the entire system performance.
+Because every write IO request could generate two additional IO requests, one to copy 
+out the existing data and the other to save the copied out data, if not carefully 
+designed, there will be a perceptible degradation on the entire system performance.
 
-When a read request reaches the virtual image, it will be either re-routed back to the original
-block device if the data on the original block device has not yet been overwritten, or re-routed
-to Copy On Write backup storage if the data has already been overwritten.
+When a read request reaches the virtual image, it will be either re-routed back to the 
+original block device if the data on the original block device has not yet been 
+overwritten, or re-routed to Copy On Write backup storage if the data has already been 
+overwritten.
 
-bmap uses a modified tree to manage the references of Copy On Write backup data. The implementation 
-of the modified tree is similar to x86/x64 memory addressing. The modified tree has two types of 
-node, map node and data node, the size of both are 4096 bytes. The map node is a collection of 
-indices that points to either another map node or a data node. Data node is a collections of indices 
-that points to the actual Copy On Write backup data. A given disk offset is broken into several pieces, 
-each of which acts as an index into the map node, with the last piece acting as the index into the 
-data node.
+bmap uses a modified tree to manage the references of Copy On Write backup data. The 
+implementation of the modified tree is similar to x86/x64 memory addressing. The 
+modified tree has two types of node, map node and data node, the size of both are 4096 
+bytes. The map node is a collection of indices that points to either another map node or
+a data node. Data node is a collections of indices that points to the actual Copy On 
+Write backup data. A given disk offset is broken into several pieces, each of which acts
+as an index into the map node, with the last piece acting as the index into the data 
+node.
 
-The modified tree has been compared with the red black tree which Linux kernel has a ready-to-use 
-version. Testing shows modified tree outperforms red black tree by a noticeable margin.
+The modified tree has been compared with the red black tree which Linux kernel has a 
+ready-to-use version. Testing shows modified tree outperforms red black tree by a 
+noticeable margin.
 
 
 === SOURCE FILE ===
