@@ -8,8 +8,8 @@
 
 MODULE_LICENSE("GPL");
 
-#define BDEV_TO_HOOK MKDEV(8, 49)	/* Testing machine, hardcode /dev/sdd1 */
-#define BDEV_TO_STORE MKDEV(8, 33)	/* Testing machine, hardcode /dev/sdc1 */
+#define BDEV_TO_HOOK MKDEV(8, 49)	/* Testing, hardcode /dev/sdd1 */
+#define BDEV_TO_STORE MKDEV(8, 33)	/* Testing, hardcode /dev/sdc1 */
 
 struct block_mapper bm;
 
